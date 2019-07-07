@@ -1,23 +1,18 @@
-type taskType = {
-  id: int,
-  title: string,
-  completed: bool,
-  archived: bool,
-};
-
 type action =
   | Navigate(TodoFooter.showingState)
-  | ToggleItem(taskType)
-  | Destroy(taskType)
+  | ToggleItem(Task.task)
+  | Destroy(Task.task)
   | NewTodoEnterKeyDown
   | NewTodoOtherKeyDown
   | UpdateNewTodoText(string)
-  | Edit(taskType)
+  | Edit(Task.task)
+  | CancelEdit
+  | SaveEdit(Task.task, string)
   | AddTodoItem;
 
-  type state = {
+type state = {
   route: TodoFooter.showingState,
-  tasks: list(taskType),
+  tasks: list(Task.task),
   newTaskText: string,
   editing: option(int),
 };
@@ -25,58 +20,39 @@ type action =
 let taskId = ref(0);
 /* This is getting called twice on first click */
 let newTask = (state) => {
-    taskId := taskId^ + 1;
-    let trimmed = String.trim(state.newTaskText);
-  
-    String.length(trimmed) === 0
-      ? state
-      : {
-        ...state,
-        tasks: [
-          {
-            id: taskId^,
-            title: String.trim(state.newTaskText),
-            completed: false,
-            archived: false,
-          },
-          ...state.tasks,
-        ],
-        newTaskText: "",
-      };
+  taskId := taskId^ + 1;
+  let trimmed = String.trim(state.newTaskText);
+  String.length(trimmed) === 0
+    ? state
+    : {
+      ...state,
+      tasks: [
+        {
+          id: taskId^,
+          title: String.trim(state.newTaskText),
+          completed: false,
+          archived: false,
+        },
+        ...state.tasks,
+      ],
+      newTaskText: "",
+    };
 }
 
 /* Util */
 let str = ReasonReact.string;
 
 let getRouteFromUrl = (path) =>
-switch (path) {
-  | ["completed"] => TodoFooter.CompletedTodos;
-  | ["active"] => ActiveTodos;
-  | ["archived"] => ArchivedTodos;
-  | _ => AllTodos;
-  };
-
-module Task = {
-  [@react.component]
-  let make = (~task, ~onDestroy, ~onEdit, ~onChange, ~editing) => {
-    <li className="item" key=(string_of_int(task.id))>
-      <input
-        type_="checkbox"
-        checked=(task.completed)
-        onChange
-      />
-      <label
-        onDoubleClick=((_event) => onEdit())
-      >
-        (str(task.title ++ string_of_bool(editing)))
-      </label>
-      <button onClick=(onDestroy)>(str("Delete"))</button>
-    </li>
-  }
-}
+  switch (path) {
+    | ["completed"] => TodoFooter.CompletedTodos;
+    | ["active"] => ActiveTodos;
+    | ["archived"] => ArchivedTodos;
+    | _ => AllTodos;
+    };
 
 [@react.component]
 let make = () => {
+  /* Reducer */
   let (state, dispatch) = React.useReducer(
     (state, action) =>
       switch (action) {
@@ -101,6 +77,16 @@ let make = () => {
         ...state,
         editing: Some(todo.id)
       }
+      | CancelEdit => { ...state, editing: None }
+      | SaveEdit(taskToSave, textToSave) => {
+        let tasks = List.map(
+          (task) => task === taskToSave
+            ? { ...task, title: textToSave }
+            : task,
+          state.tasks
+        );
+        { ...state, tasks: tasks, editing: None }
+      }
       },
     /* Initial State */
     {
@@ -122,33 +108,37 @@ let make = () => {
 
   let itemCount = List.length(tasks);
   let completedCount = tasks
-    |> List.filter(item => item.completed && !item.archived)
+    |> List.filter((item: Task.task) => item.completed && !item.archived)
     |> List.length;
   let activeCount = itemCount - completedCount;
   let archivedCount = tasks
-  |> List.filter(item => item.archived)
+  |> List.filter((item: Task.task) => item.archived)
   |> List.length; 
   
   let tasks =
     tasks
     |> List.filter((task) => {
-      switch(state.route) {
-      | AllTodos => true
-      | CompletedTodos => task.completed
-      | ActiveTodos => !task.completed && !task.archived
-      | ArchivedTodos => task.archived
-      }
+      Task.(
+        switch(state.route) {
+        | AllTodos => true
+        | CompletedTodos => task.completed
+        | ActiveTodos => !task.completed && !task.archived
+        | ArchivedTodos => task.archived
+        }
+      )
     })
     |> List.map((task) => {
       let editing =
-        switch(state.editing) {
+        switch(editing) {
         | None => false
-        | Some(editing) => editing === task.id
+        | Some(editing) => editing === Task.(task.id)
         };
       <Task
         onChange=((_) => dispatch(ToggleItem(task)))
         onDestroy=((_) => dispatch(Destroy(task)))
         onEdit=((_) => dispatch(Edit(task)))
+        onCancel=((_) => dispatch(CancelEdit))
+        onSave=((editText) => dispatch(SaveEdit(task, editText)))
         task
         editing
       />;

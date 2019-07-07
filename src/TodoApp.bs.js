@@ -7,8 +7,8 @@ var Block = require("bs-platform/lib/js/block.js");
 var Curry = require("bs-platform/lib/js/curry.js");
 var React = require("react");
 var $$String = require("bs-platform/lib/js/string.js");
-var Pervasives = require("bs-platform/lib/js/pervasives.js");
 var ReasonReactRouter = require("reason-react/src/ReasonReactRouter.js");
+var Task$ReactHooksTemplate = require("./Task.bs.js");
 var TodoFooter$ReactHooksTemplate = require("./TodoFooter.bs.js");
 
 var taskId = /* record */[/* contents */0];
@@ -70,38 +70,21 @@ function getRouteFromUrl(path) {
   }
 }
 
-function TodoApp$Task(Props) {
-  var task = Props.task;
-  var onDestroy = Props.onDestroy;
-  var onEdit = Props.onEdit;
-  var onChange = Props.onChange;
-  var editing = Props.editing;
-  return React.createElement("li", {
-              key: String(task[/* id */0]),
-              className: "item"
-            }, React.createElement("input", {
-                  checked: task[/* completed */2],
-                  type: "checkbox",
-                  onChange: onChange
-                }), React.createElement("label", {
-                  onDoubleClick: (function (_event) {
-                      return Curry._1(onEdit, /* () */0);
-                    })
-                }, task[/* title */1] + Pervasives.string_of_bool(editing)), React.createElement("button", {
-                  onClick: onDestroy
-                }, "Delete"));
-}
-
-var Task = /* module */[/* make */TodoApp$Task];
-
 function TodoApp(Props) {
   var match = React.useReducer((function (state, action) {
           if (typeof action === "number") {
             switch (action) {
               case 1 : 
                   return state;
-              case 0 : 
               case 2 : 
+                  return /* record */[
+                          /* route */state[/* route */0],
+                          /* tasks */state[/* tasks */1],
+                          /* newTaskText */state[/* newTaskText */2],
+                          /* editing */undefined
+                        ];
+              case 0 : 
+              case 3 : 
                   return newTask(state);
               
             }
@@ -160,6 +143,28 @@ function TodoApp(Props) {
                           /* newTaskText */state[/* newTaskText */2],
                           /* editing */action[0][/* id */0]
                         ];
+              case 5 : 
+                  var textToSave = action[1];
+                  var taskToSave = action[0];
+                  var tasks$2 = List.map((function (task) {
+                          var match = task === taskToSave;
+                          if (match) {
+                            return /* record */[
+                                    /* id */task[/* id */0],
+                                    /* title */textToSave,
+                                    /* completed */task[/* completed */2],
+                                    /* archived */task[/* archived */3]
+                                  ];
+                          } else {
+                            return task;
+                          }
+                        }), state[/* tasks */1]);
+                  return /* record */[
+                          /* route */state[/* route */0],
+                          /* tasks */tasks$2,
+                          /* newTaskText */state[/* newTaskText */2],
+                          /* editing */undefined
+                        ];
               
             }
           }
@@ -170,6 +175,7 @@ function TodoApp(Props) {
         /* editing */undefined
       ]);
   var state = match[0];
+  var editing = state[/* editing */3];
   var tasks = state[/* tasks */1];
   var dispatch = match[1];
   React.useEffect((function () {
@@ -193,9 +199,8 @@ function TodoApp(Props) {
                 return item[/* archived */3];
               }))(tasks));
   var tasks$1 = $$Array.of_list(List.map((function (task) {
-              var match = state[/* editing */3];
-              var editing = match !== undefined ? match === task[/* id */0] : false;
-              return React.createElement(TodoApp$Task, {
+              var editing$1 = editing !== undefined ? editing === task[/* id */0] : false;
+              return React.createElement(Task$ReactHooksTemplate.make, {
                           task: task,
                           onDestroy: (function (param) {
                               return Curry._1(dispatch, /* Destroy */Block.__(2, [task]));
@@ -206,7 +211,16 @@ function TodoApp(Props) {
                           onChange: (function (param) {
                               return Curry._1(dispatch, /* ToggleItem */Block.__(1, [task]));
                             }),
-                          editing: editing
+                          editing: editing$1,
+                          onCancel: (function (param) {
+                              return Curry._1(dispatch, /* CancelEdit */2);
+                            }),
+                          onSave: (function (editText) {
+                              return Curry._1(dispatch, /* SaveEdit */Block.__(5, [
+                                            task,
+                                            editText
+                                          ]));
+                            })
                         });
             }), List.filter((function (task) {
                     var match = state[/* route */0];
@@ -244,7 +258,7 @@ function TodoApp(Props) {
                     })
                 }), React.createElement("button", {
                   onClick: (function (param) {
-                      return Curry._1(dispatch, /* AddTodoItem */2);
+                      return Curry._1(dispatch, /* AddTodoItem */3);
                     })
                 }, "Add Item"), React.createElement("ul", undefined, tasks$1), React.createElement(TodoFooter$ReactHooksTemplate.make, {
                   route: state[/* route */0],
@@ -261,6 +275,5 @@ exports.taskId = taskId;
 exports.newTask = newTask;
 exports.str = str;
 exports.getRouteFromUrl = getRouteFromUrl;
-exports.Task = Task;
 exports.make = make;
 /* react Not a pure module */
